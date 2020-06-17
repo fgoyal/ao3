@@ -17,16 +17,17 @@ ReadingHistoryItem = collections.namedtuple(
 
 class User(object):
 
-    def __init__(self, username, password, sess=None):
+    def __init__(self, username, password=None, sess=None):
         self.username = username
 
         if sess == None:
             sess = requests.Session()
 
-        req = sess.get('https://archiveofourown.org')
-        soup = BeautifulSoup(req.text, features='html.parser')
+        if password != None:
+            req = sess.get('https://archiveofourown.org')
+            soup = BeautifulSoup(req.text, features='html.parser')
 
-        authenticity_token = soup.find('input', {'name': 'authenticity_token'})['value']
+            authenticity_token = soup.find('input', {'name': 'authenticity_token'})['value']
 
         req = sess.post('https://archiveofourown.org/users/login', params={
             'authenticity_token': authenticity_token,
@@ -34,11 +35,11 @@ class User(object):
             'user[password]': password,
         })
 
-        # Unfortunately AO3 doesn't use HTTP status codes to communicate
-        # results -- it's a 200 even if the login fails.
-        if 'Please try again' in req.text:
-            raise RuntimeError(
-                'Error logging in to AO3; is your password correct?')
+            # Unfortunately AO3 doesn't use HTTP status codes to communicate
+            # results -- it's a 200 even if the login fails.
+            if 'Please try again' in req.text:
+                raise RuntimeError(
+                    'Error logging in to AO3; is your password correct?')
 
         self.sess = sess
     def __repr__(self):

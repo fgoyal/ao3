@@ -2,6 +2,7 @@
 
 from datetime import datetime
 import json
+from re import sub
 
 from bs4 import BeautifulSoup, Tag
 import requests
@@ -208,6 +209,34 @@ class Work(object):
         return self._lookup_stat('language', "").strip()
 
     @property
+    def series(self):
+        """Returns the work's series. If no series, returns None."""
+        # The series info is stored at:
+        #
+        #    <dd class="series">
+        #     <span class="series">
+        #      <span class="position">
+        #       part _ of
+        #       <a href="series link">Series Title</a>
+        #      </span>
+        #     </span>
+        #    </dd>
+        try:
+            ret = self._soup.find('dd', attrs={'class': "series"})
+            ret = ret.find("span", attrs={"class":"series"})
+            ret = ret.find("span", attrs={"class":"position"})
+            ret = ret.find("a")
+            
+            id = sub(r"\/series\/","",ret["href"])
+            title = ret.contents[0]
+
+            ret = {"id":id,"title":title}
+
+            return ret
+        except:
+            return None
+
+    @property
     def published(self):
         """The date when this work was published."""
         date_str = self._lookup_stat('published')
@@ -215,9 +244,26 @@ class Work(object):
         return date_val.date()
 
     @property
+    def updated(self):
+        """The date when this work was updated."""
+        try:
+            date_str = self._lookup_stat('status')
+            date_val = datetime.strptime(date_str, '%Y-%m-%d')
+            return date_val.date()
+        except:
+            return self.published
+
+    @property
     def words(self):
         """The number of words in this work."""
         return int(self._lookup_stat('words', 0))
+
+    @property
+    def chapters(self):
+        """The number of chapters in this work."""
+        chapters = self._lookup_stat('chapters', 0)
+        chapters = chapters.split("/")
+        return {"num_chapters":chapters[0],"total_chapters":chapters[1]}
 
     @property
     def comments(self):
@@ -311,10 +357,12 @@ class Work(object):
             'characters': self.characters,
             'additional_tags': self.additional_tags,
             'language': self.language,
+            'series':self.series,
             'stats': {
                 'published': str(self.published),
+                'updated': str(self.updated),
                 'words': self.words,
-                # TODO: chapters
+                'chapters': self.chapters,
                 'comments': self.comments,
                 'kudos': self.kudos,
                 'bookmarks': self.bookmarks,
